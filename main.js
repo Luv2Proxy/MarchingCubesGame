@@ -14,7 +14,7 @@ scene.background = new THREE.Color('#7dc2f3');
 scene.fog = new THREE.Fog('#8bc7f6', 25, 115);
 
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
-camera.position.set(10, 15, 40);
+camera.position.set(10, 50, 40);
 
 const hemi = new THREE.HemisphereLight('#d8f8ff', '#6d8dc7', 1.1);
 scene.add(hemi);
