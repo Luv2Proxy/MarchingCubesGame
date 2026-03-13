@@ -91,7 +91,7 @@ const terrainMaterial = new THREE.MeshStandardMaterial({
   vertexColors: true,
   roughness: 0.92,
   metalness: 0.02,
-  flatShading: false,
+  flatShading: true,
 });
 
 let terrainMesh = null;
@@ -176,62 +176,12 @@ function generateTerrainField() {
   }
 }
 
-function sampleField(worldPos) {
-  const gx = clamp(worldPos.x / world.cellSize, 0, world.nx);
-  const gy = clamp(worldPos.y / world.cellSize, 0, world.ny);
-  const gz = clamp(worldPos.z / world.cellSize, 0, world.nz);
-
-  const x0 = Math.floor(gx);
-  const y0 = Math.floor(gy);
-  const z0 = Math.floor(gz);
-  const x1 = Math.min(x0 + 1, world.nx);
-  const y1 = Math.min(y0 + 1, world.ny);
-  const z1 = Math.min(z0 + 1, world.nz);
-
-  const tx = gx - x0;
-  const ty = gy - y0;
-  const tz = gz - z0;
-
-  const lerp = (a, b, t) => a + (b - a) * t;
-
-  const c000 = field[idx(x0, y0, z0)];
-  const c100 = field[idx(x1, y0, z0)];
-  const c010 = field[idx(x0, y1, z0)];
-  const c110 = field[idx(x1, y1, z0)];
-  const c001 = field[idx(x0, y0, z1)];
-  const c101 = field[idx(x1, y0, z1)];
-  const c011 = field[idx(x0, y1, z1)];
-  const c111 = field[idx(x1, y1, z1)];
-
-  const x00 = lerp(c000, c100, tx);
-  const x10 = lerp(c010, c110, tx);
-  const x01 = lerp(c001, c101, tx);
-  const x11 = lerp(c011, c111, tx);
-
-  const y0v = lerp(x00, x10, ty);
-  const y1v = lerp(x01, x11, ty);
-
-  return lerp(y0v, y1v, tz);
-}
-
-function gradientAt(worldPos) {
-  const e = 0.4;
-  const dx = sampleField(new THREE.Vector3(worldPos.x + e, worldPos.y, worldPos.z))
-    - sampleField(new THREE.Vector3(worldPos.x - e, worldPos.y, worldPos.z));
-  const dy = sampleField(new THREE.Vector3(worldPos.x, worldPos.y + e, worldPos.z))
-    - sampleField(new THREE.Vector3(worldPos.x, worldPos.y - e, worldPos.z));
-  const dz = sampleField(new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z + e))
-    - sampleField(new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z - e));
-  return new THREE.Vector3(dx, dy, dz).normalize();
-}
-
-function vertexColor(y, normal) {
+function vertexColor(y, slope) {
   const low = new THREE.Color('#f4ca95');
   const mid = new THREE.Color('#82bf67');
   const high = new THREE.Color('#d9d8df');
 
   const h = clamp(y / world.ny, 0, 1);
-  const slope = 1 - Math.abs(normal.y);
   const base = low.clone().lerp(mid, clamp(h * 1.25, 0, 1)).lerp(high, Math.max(0, h - 0.62) * 2.2);
 
   if (slope > 0.55) {
@@ -267,14 +217,31 @@ function polygoniseTetra(points, values, positions, normals, colors, indices) {
     for (const e of tri) {
       const p = edgeVertices[e];
       if (!p) continue;
-      const n = gradientAt(p);
-      const c = vertexColor(p.y, n);
       positions.push(p.x, p.y, p.z);
-      normals.push(n.x, n.y, n.z);
-      colors.push(c.r, c.g, c.b);
       triIndices.push((positions.length / 3) - 1);
     }
-    if (triIndices.length === 3) indices.push(...triIndices);
+
+    if (triIndices.length === 3) {
+      const i0 = triIndices[0] * 3;
+      const i1 = triIndices[1] * 3;
+      const i2 = triIndices[2] * 3;
+
+      const a = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
+      const b = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+      const cPos = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+
+      const faceNormal = new THREE.Vector3().crossVectors(b.clone().sub(a), cPos.clone().sub(a)).normalize();
+      const slope = 1 - Math.abs(faceNormal.y);
+
+      for (const idx of triIndices) {
+        const by = positions[idx * 3 + 1];
+        const vc = vertexColor(by, slope);
+        normals.push(faceNormal.x, faceNormal.y, faceNormal.z);
+        colors.push(vc.r, vc.g, vc.b);
+      }
+
+      indices.push(...triIndices);
+    }
   }
 }
 

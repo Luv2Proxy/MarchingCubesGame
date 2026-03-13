@@ -3,7 +3,7 @@
 A small Astroneer-inspired browser game prototype featuring:
 
 - Full marching tetrahedra mesh extraction from a scalar field
-- Smooth interpolation across all generated surface triangles
+- Low-poly faceted terrain shading for a stylized sculpted look
 - Real-time terrain building and destruction with a soft brush
 - Stylized pastel terrain coloring and foggy atmosphere
 - FPS-style flight controls for sculpting terrain in 3D
